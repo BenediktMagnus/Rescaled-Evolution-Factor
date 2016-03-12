@@ -1,10 +1,9 @@
 {
   "name": "Rescaled-Evolution-Factor",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "title": "Rescaled Evolution Factor",
   "author": "Benedikt Magnus",
   "contact": "magnus@magnuscraft.de",
-  "homepage": "https://github.com/BenediktMagnus/Rescaled-Evolution-Factor",
   "description": "This mod implements the evolution factor on a new way. Pollution, destroyed spawners and time are rescaled and lower pollution can lower the evolution factor!",
-  "dependencies": ["base >= 0.12.20"]
+  "dependencies": ["base >= 0.12.20", "? EvoGUI >=0.4.11"]
 }
