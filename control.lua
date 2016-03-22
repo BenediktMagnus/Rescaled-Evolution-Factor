@@ -37,7 +37,7 @@ function pollutiontest(event)
 			anzahl = 1000
 		end
 	  
-		local pollution_summe = math.sqrt(summe/math.log(anzahl)/100000) * 7 --(Gewichtung = 70%)
+		local pollution_summe = summe/math.log(anzahl)/100000 * 7 --(Gewichtung = 70%)
 	  
 		if pollution_summe > 7 then
 			pollution_summe = 7

@@ -1,4 +1,4 @@
-Rescaled Evolution Factor v.1.0.0
+Rescaled Evolution Factor v.1.2.0
 
 German/Deutsch: (English below)
 
