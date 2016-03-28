@@ -37,22 +37,22 @@ function pollutiontest(event)
 			anzahl = 1000
 		end
 	  
-		local pollution_summe = summe/math.log(anzahl)/100000 * 7 --(Gewichtung = 70%)
+		local pollution_summe = summe/math.log(anzahl)/100000 * 5 --(Gewichtung = 50%)
 	  
-		if pollution_summe > 7 then
-			pollution_summe = 7
+		if pollution_summe > 5 then
+			pollution_summe = 5
 		end
 	  
-		local vergangene_zeit = 1
+		local vergangene_zeit = 2
 	  
 		if game.tick < 5184000 then --5184000 Ticks = 24 Stunden
-			vergangene_zeit = game.tick / 5184000 --(Gewichtung = 10%)
+			vergangene_zeit = math.pow(game.tick / 5184000, 2) * 2 --(Gewichtung = 20%)
 		end
 	  
-		local pollution_spawner_anzahl = 2
+		local pollution_spawner_anzahl = 3
 	  
-		if global.pollution_spawner < 50 then
-			pollution_spawner_anzahl = global.pollution_spawner / 25 -- /50 * 2 (Gewichtung = 20%)
+		if global.pollution_spawner < 60 then
+			pollution_spawner_anzahl = global.pollution_spawner / 20 -- /60 * 3 (Gewichtung = 30%)
 		end
 	  
 		local faktor = (pollution_summe + pollution_spawner_anzahl + vergangene_zeit) / 10 --Wieder "entwichten".
