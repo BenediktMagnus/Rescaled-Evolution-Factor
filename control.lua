@@ -76,7 +76,7 @@ function pollutiontest(event)
 end
 
 function spawnertot(event)
-   if (global.pollution_spawner < 50 and (event.entity.name == "spitter-spawner" or event.entity.name == "biter-spawner")) then
+   if (global.pollution_spawner < 60 and (event.entity.name == "spitter-spawner" or event.entity.name == "biter-spawner")) then
       global.pollution_spawner = global.pollution_spawner + 1
    end   
 end
