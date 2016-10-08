@@ -1,5 +1,4 @@
 require "util"
-require "defines"
 
 script.on_init(function()
    global.pollution_spawner = 0
