@@ -6,5 +6,5 @@
   "author": "Benedikt Magnus",
   "contact": "magnus@magnuscraft.de",
   "description": "This mod implements the evolution factor on a new way. Pollution, destroyed spawners and time are rescaled and lower pollution can lower the evolution factor!",
-  "dependencies": ["base >= 0.13.00", "? EvoGUI >=0.4.11"]
+  "dependencies": ["base >= 0.13.00"]
 }
