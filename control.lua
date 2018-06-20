@@ -19,7 +19,6 @@ script.on_load(function()
 	end)
 
 function pollutiontest(event)
-	if game.tick % 60 == 24 then
 		local summe = 0
 		local anzahl = 0
 
@@ -72,5 +71,5 @@ function spawnertot(event)
    end
 end
 
-script.on_event(defines.events.on_tick, pollutiontest)
-script.on_event(defines.events.on_entity_died , spawnertot)
+script.on_nth_tick(60, pollutiontest)
+script.on_event(defines.events.on_entity_died, spawnertot)
