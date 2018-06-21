@@ -1,46 +1,111 @@
 require "util"
 
-pollution = {}
+-- Constants:
+
+local weighting = {}
+weighting.time = 0.15
+weighting.tech = 0.10
+
+local maximum = {}
+maximum.pollution = 0.8
+maximum.spawners = 0.6
+
+local config = {}
+config.count_every_ticks = 3
+config.chunks_per_counting_tick = 100
+config.ticks_for_max_value = 60 * 60 * 60 * 24 -- = 24 hours
+config.spawners_for_maximum = 60
+config.spawner_forget_time = 60 * 60 * 12 -- = 12 minutes
+config.adjustment_per_calculation = 0.08
+
+-- Globals:
+
+local pollution = {}
 pollution.surface = nil
 pollution.chunks = nil
-pollution.summe = 0
+pollution.amount = 0
 pollution.count = 0
 
-function Initialisierung ()
+-- Functions:
+
+function init ()
+	game.map_settings.enemy_evolution.enabled = false
+
+	global.spawner_died = 0
+
+	load()
+end
+
+function load ()
 	pollution.surface = game.surfaces["nauvis"]
 	pollution.chunks = pollution.surface.get_chunks()
 end
 
-script.on_init(Initialisierung)
-script.on_load(Initialisierung)
+function change_config (data)
+	--if data.mod_changes ~= nil and data.mod_changes["Rescaled-Evolution-Factor"] ~= nil and data.mod_changes["Rescaled-Evolution-Factor"].old_version == nil then
+	--	global.pollution_spawner = 0
+	--	game.map_settings.enemy_evolution.time_factor = 0.000008 * 0
+	--	game.map_settings.enemy_evolution.pollution_factor = 0.00003 * 0
+	--end
+end
 
-script.on_configuration_changed(
-	function(data)
-		--if data.mod_changes ~= nil and data.mod_changes["Rescaled-Evolution-Factor"] ~= nil and data.mod_changes["Rescaled-Evolution-Factor"].old_version == nil then
-		--	global.pollution_spawner = 0
-		--	game.map_settings.enemy_evolution.time_factor = 0.000008 * 0
-		--	game.map_settings.enemy_evolution.pollution_factor = 0.00003 * 0
-		--end
-	end
-)
-
-function pollutiontest(event)
-	local summe = 0
+-- Iterate over the chunk list (only some per tick) and count the pollution:
+function count_pollution()
+	local amount = 0
 	local count = 0
 
-	for i = 1, 10 do
+	for i = 1, config.chunks_per_counting_tick do
 		local chunk = pollution.chunks(nil, nil)
 		if (chunk == nil) then
-			summe = pollution.summe
+			amount = pollution.amount
 			count = pollution.count
-			pollution.summe = 0
+			pollution.amount = 0
 			pollution.count = 0
 			pollution.chunks = pollution.surface.get_chunks()
 		else
-			pollution.summe = pollution.summe + pollution.surface.get_pollution({chunk.x*32, chunk.y*32})
+			pollution.amount = pollution.amount + pollution.surface.get_pollution({chunk.x*32, chunk.y*32})
 			pollution.count = pollution.count + 1
 		end
 	end
+
+	if (count ~= 0) then
+		calculate_factor()
+	end
+end
+
+function calculate_factor ()
+
+	-- time factor
+
+	local past_time = 1
+	if game.tick < config.ticks_for_max_value then
+		past_time = math.pow(game.tick / config.ticks_for_max_value, 2)
+	end
+
+	local factor_time = past_time * weighting.time
+
+	-- technology factor
+
+	local technologies = game.forces['player'].technologies
+	local technology_count = 0
+
+	for _, technology in pairs(technologies) do
+		if (technology.researched) then
+			technology_count = technology_count + 1
+		end
+	end
+
+	local factor_tech = technology_count / #technologies * weighting.tech
+
+	-- spawner factor
+
+	local factor_spawner = global.spawner_died * maximum.spawners / config.spawners_for_maximum
+
+	if (factor_spawner > maximum.spawners) then
+		factor_spawner = maximum.spawners
+	end
+
+	-- pollution factor
 
 --[[
 	if anzahl < 1000 then --Mindestwert für die Anzahl, erleichtert den Start.
@@ -53,37 +118,52 @@ function pollutiontest(event)
 		pollution_summe = 5
 	end
 
-	local vergangene_zeit = 2
-
-	if game.tick < 5184000 then --5184000 Ticks = 24 Stunden
-		vergangene_zeit = math.pow(game.tick / 5184000, 2) * 2 --(Gewichtung = 20%)
-	end
-
-	local pollution_spawner_anzahl = 3
-
-	if global.pollution_spawner < 60 then
-		pollution_spawner_anzahl = global.pollution_spawner / 20 -- /60 * 3 (Gewichtung = 30%)
-	end
-
 	local faktor = (pollution_summe + pollution_spawner_anzahl + vergangene_zeit) / 10 --Wieder "entwichten".
 
 	if faktor > 1 then
 		faktor = 1
 	end
-
-	game.evolution_factor = faktor
-
-    if (game.tick % 216000 == 25 and global.pollution_spawner > 0) then
-		global.pollution_spawner = global.pollution_spawner -1 --Vergiss mit der Zeit alte Fehden.
-	end
 ]]--
+
+	-- factor calculation
+
+	local new_factor = factor_time + factor_tech + factor_spawner
+
+	local old_factor = game.forces["enemy"].evolution_factor
+
+	local temp = new_factor
+
+	new_factor = old_factor + (new_factor - old_factor) * config.adjustment_per_calculation
+
+	if (new_factor > 1) then
+		new_factor = 1
+	end
+
+	game.forces["enemy"].evolution_factor = new_factor
 end
 
-function spawnertot(event)
-   if (global.pollution_spawner < 60 and (event.entity.name == "spitter-spawner" or event.entity.name == "biter-spawner")) then
-      global.pollution_spawner = global.pollution_spawner + 1
-   end
+-- Count every killed spawner:
+function entity_died (entity)
+	if (entity.type == 'unit-spawner') then
+		global.spawner_died = global.spawner_died + 1
+	end
 end
 
-script.on_nth_tick(3, pollutiontest)
---script.on_event(defines.events.on_entity_died, spawnertot)
+-- Reduce the number of known killed spawners so the evolution factor decreases if you are nice again:
+function forget_spawner_death ()
+	if (global.spawner_died > 0) then
+		global.spawner_died = global.spawner_died - 1
+	end
+end
+
+-- Initialising:
+
+script.on_init(init)
+script.on_load(load)
+
+script.on_configuration_changed(change_config)
+
+script.on_nth_tick(config.count_every_ticks, count_pollution)
+
+script.on_event(defines.events.on_entity_died, entity_died)
+script.on_nth_tick(config.spawner_forget_time, forget_spawner_death)
