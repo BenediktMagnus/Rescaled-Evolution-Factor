@@ -15,6 +15,8 @@ config.ticks_for_max_value = 60 * 60 * 60 * 24 -- = 24 hours
 config.spawners_for_maximum = 60
 config.spawner_forget_time = 60 * 60 * 12 -- = 12 minutes
 config.adjustment_per_calculation = 0.08
+config.minimum_pollution_neutral = 80000
+config.pollution_factor_per_tick = 0.00002
 
 -- Globals:
 
@@ -30,6 +32,9 @@ function init ()
 	game.map_settings.enemy_evolution.enabled = false
 
 	global.spawner_died = 0
+	global.pollution_neutral = config.minimum_pollution_neutral
+	global.pollution_last_tick = game.tick
+	global.pollution_current_value = 0
 
 	load()
 end
@@ -67,11 +72,11 @@ function count_pollution()
 	end
 
 	if (count ~= 0) then
-		calculate_factor()
+		calculate_factor(amount, count)
 	end
 end
 
-function calculate_factor ()
+function calculate_factor (pollution_amount, pollution_count)
 
 	-- time factor
 
@@ -108,37 +113,33 @@ function calculate_factor ()
 
 	-- pollution factor
 
---[[
+	local pollution_value = pollution_amount / math.log(pollution_count)
 
-	if anzahl < 1000 then --Mindestwert für die Anzahl, erleichtert den Start.
-		anzahl = 1000
+	local delta_tick = game.tick - global.pollution_last_tick
+	global.pollution_last_tick = game.tick
+
+	local delta_pollution = pollution_value - global.pollution_neutral
+
+	global.pollution_neutral = global.pollution_neutral + delta_pollution * config.adjustment_per_calculation
+
+	if (global.pollution_neutral < config.minimum_pollution_neutral) then
+		global.pollution_neutral = config.minimum_pollution_neutral
 	end
 
-	local pollution_summe = summe/math.log(anzahl)/100000 * 5 --(Gewichtung = 50%)
+	global.pollution_current_value = global.pollution_current_value + delta_pollution * config.pollution_factor_per_tick * delta_tick
 
-	if pollution_summe > 5 then
-		pollution_summe = 5
+	if (global.pollution_current_value < 0) then
+		global.pollution_current_value = 0
 	end
 
-	-----------------
-
-	local summe_anzahl = summe/math.log(anzahl)
-		
-	global.neutral_pollution = global.neutral_pollution + (summe_anzahl - global.neutral_pollution) * 0.01
-		
-	local pollution_wertung = summe_anzahl - global.neutral_pollution
-		
-	if pollution_wertung >= 0 then
-		pollution_wertung = math.log(pollution_wertung) * 0.000002
-	else
-		pollution_wertung = math.log(pollution_wertung * -1) * -0.000002
+	local factor_pollution = maximum.pollution
+	if (global.pollution_current_value < maximum.pollution) then
+		factor_pollution = global.pollution_current_value
 	end
-
-]]--
 
 	-- factor calculation
 
-	local new_factor = factor_time + factor_tech + factor_spawner
+	local new_factor = factor_time + factor_tech + factor_spawner + factor_pollution
 
 	local old_factor = game.forces["enemy"].evolution_factor
 
