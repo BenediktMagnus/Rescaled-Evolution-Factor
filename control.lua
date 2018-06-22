@@ -2,16 +2,14 @@ require "util"
 
 -- Constants:
 
-local weighting = {}
-weighting.time = 0.15
-weighting.tech = 0.10
-
 local maximum = {}
-maximum.pollution = 0.8
+maximum.time = 0.15
+maximum.tech = 0.10
 maximum.spawners = 0.6
+maximum.pollution = 0.8
 
 local config = {}
-config.count_every_ticks = 3
+config.count_every_n_ticks = 3
 config.chunks_per_counting_tick = 100
 config.ticks_for_max_value = 60 * 60 * 60 * 24 -- = 24 hours
 config.spawners_for_maximum = 60
@@ -77,37 +75,41 @@ function calculate_factor ()
 
 	-- time factor
 
-	local past_time = 1
+	local factor_time = maximum.time
 	if game.tick < config.ticks_for_max_value then
-		past_time = math.pow(game.tick / config.ticks_for_max_value, 2)
+		factor_time = math.pow(game.tick / config.ticks_for_max_value, 2) * maximum.time
 	end
-
-	local factor_time = past_time * weighting.time
 
 	-- technology factor
 
 	local technologies = game.forces['player'].technologies
-	local technology_count = 0
 
+	local technology_count = 0
 	for _, technology in pairs(technologies) do
 		if (technology.researched) then
 			technology_count = technology_count + 1
 		end
 	end
 
-	local factor_tech = technology_count / #technologies * weighting.tech
+	local factor_tech = maximum.tech
+	if (technology_count < #technologies) then
+		factor_tech = math.pow(technology_count / #technologies, 3) * maximum.tech
+	end
 
 	-- spawner factor
 
-	local factor_spawner = global.spawner_died * maximum.spawners / config.spawners_for_maximum
+	local factor_spawner = global.spawner_died / config.spawners_for_maximum
 
-	if (factor_spawner > maximum.spawners) then
+	if (factor_spawner <= 1) then
+		factor_spawner = factor_spawner * maximum.spawners
+	else
 		factor_spawner = maximum.spawners
 	end
 
 	-- pollution factor
 
 --[[
+
 	if anzahl < 1000 then --Mindestwert für die Anzahl, erleichtert den Start.
 		anzahl = 1000
 	end
@@ -118,11 +120,20 @@ function calculate_factor ()
 		pollution_summe = 5
 	end
 
-	local faktor = (pollution_summe + pollution_spawner_anzahl + vergangene_zeit) / 10 --Wieder "entwichten".
+	-----------------
 
-	if faktor > 1 then
-		faktor = 1
+	local summe_anzahl = summe/math.log(anzahl)
+		
+	global.neutral_pollution = global.neutral_pollution + (summe_anzahl - global.neutral_pollution) * 0.01
+		
+	local pollution_wertung = summe_anzahl - global.neutral_pollution
+		
+	if pollution_wertung >= 0 then
+		pollution_wertung = math.log(pollution_wertung) * 0.000002
+	else
+		pollution_wertung = math.log(pollution_wertung * -1) * -0.000002
 	end
+
 ]]--
 
 	-- factor calculation
@@ -140,6 +151,8 @@ function calculate_factor ()
 	end
 
 	game.forces["enemy"].evolution_factor = new_factor
+
+	--game.players['BenediktMagnus'].print(old_factor .. ' : ' .. temp .. ' ->' .. new_factor)
 end
 
 -- Count every killed spawner:
@@ -163,7 +176,7 @@ script.on_load(load)
 
 script.on_configuration_changed(change_config)
 
-script.on_nth_tick(config.count_every_ticks, count_pollution)
+script.on_nth_tick(config.count_every_n_ticks, count_pollution)
 
 script.on_event(defines.events.on_entity_died, entity_died)
 script.on_nth_tick(config.spawner_forget_time, forget_spawner_death)
